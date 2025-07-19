@@ -4,6 +4,7 @@ from src.knowledge_agent.config import Config
 from src.knowledge_agent.ingestion import PDFExtractor, Document
 from src.knowledge_agent.chunking import chunk_recursively, chunk_semantically
 from src.knowledge_agent.vectorization import EmbeddingModel, save_index_and_map, load_index_and_map
+from sentence_transformers import CrossEncoder
 
 class KnowledgeAgent:
     """
@@ -14,55 +15,74 @@ class KnowledgeAgent:
         cfg = Config(Path(config_path))
         self.cfg = cfg
 
-        # If index+map already exist, load them
+        # 1) If index+map exist, load them
         if cfg.index_path.exists() and cfg.doc_map_path.exists():
             self.index, self.doc_map = load_index_and_map(cfg.index_path, cfg.doc_map_path)
             return
 
-        # Otherwise run the full build pipeline
-        # 1) Ingest all PDFs
+        # 2) Ingest
         docs = []
         for pdf_file in cfg.data_raw_dir.glob("*.pdf"):
             docs += PDFExtractor(pdf_file).extract_text_with_metadata()
 
-        # 2) Chunk
+        # 3) Chunk
         if cfg.chunking_strategy == "recursive":
             chunks = chunk_recursively(docs, cfg.chunk_size, cfg.chunk_overlap)
         else:
-            chunks = chunk_semantically(docs,cfg.embedding_model,cfg.semantic_threshold)
+            chunks = chunk_semantically(docs, cfg.embedding_model, cfg.semantic_threshold)
 
-        # 3) Build doc_map
+        # 4) Build doc_map
         self.doc_map = {i: chunk for i, chunk in enumerate(chunks)}
 
-        # 4) Embed
+        # 5) Embed
         emb_model = EmbeddingModel(cfg.embedding_model)
         texts = [chunk.content for chunk in chunks]
         embeddings = emb_model.encode(texts)
 
-        # 5) FAISS index
+        # 6) Index
         dim = embeddings.shape[1]
-        if cfg.faiss_index_type == "IndexFlatL2":
-            index = faiss.IndexFlatL2(dim)
-        else:
-            # fallback to flat
-            index = faiss.IndexFlatL2(dim)
+        index = faiss.IndexFlatL2(dim) if cfg.faiss_index_type == "IndexFlatL2" else faiss.IndexFlatL2(dim)
         index.add(embeddings)
         self.index = index
 
-        # 6) Persist
+        # 7) Persist
         save_index_and_map(self.index, self.doc_map, cfg.index_path, cfg.doc_map_path)
 
-    def search(self, query: str, k: int = 5) -> list[tuple[Document, float]]:
+    def search(
+        self,
+        query: str,
+        k: int = 5,
+        rerank: bool = True
+    ) -> list[tuple[Document, float]]:
         """
-        Encode `query`, run FAISS search, and return list of (Document, distance).
+        Stage 1: FAISS search for self.cfg.rerank_top_n candidates.
+        Stage 2: Cross-encoder re-rank to pick top k if rerank=True.
         """
+        # FAISS first pass
         emb_model = EmbeddingModel(self.cfg.embedding_model)
         q_vec = emb_model.encode([query])
-        distances, indices = self.index.search(q_vec, k)
+        top_n = max(k, self.cfg.rerank_top_n)
+        distances, indices = self.index.search(q_vec, top_n)
 
-        results = []
-        for dist, idx in zip(distances[0], indices[0]):
-            doc = self.doc_map[int(idx)]
-            results.append((doc, float(dist)))
-        return results
+        candidates = [
+            (self.doc_map[int(idx)], float(dist))
+            for idx, dist in zip(indices[0], distances[0])
+        ]
 
+        # Skip reranking?
+        if not rerank or not self.cfg.cross_encoder_model:
+            return candidates[:k]
+
+        # Cross-encoder second pass
+        if not hasattr(self, "_cross_encoder"):
+            self._cross_encoder = CrossEncoder(self.cfg.cross_encoder_model)
+
+        pairs = [[query, doc.content] for doc, _ in candidates]
+        scores = self._cross_encoder.predict(pairs)
+
+        reranked = sorted(
+            zip(candidates, scores),
+            key=lambda x: x[1],
+            reverse=True
+        )
+        return [(doc, float(score)) for ((doc, _), score) in reranked[:k]]
