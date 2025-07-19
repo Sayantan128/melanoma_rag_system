@@ -11,21 +11,23 @@ class Config:
             cfg = yaml.safe_load(f)
 
         # Required paths
-        self.data_raw_dir    = Path(cfg["data_raw_dir"])
-        self.processed_dir   = Path(cfg["processed_dir"])
-        self.index_path      = Path(cfg["index_path"])
-        self.doc_map_path    = Path(cfg["doc_map_path"])
+        self.data_raw_dir = Path(cfg["data_raw_dir"])
+        self.processed_dir = Path(cfg["processed_dir"])
+        self.index_path = Path(cfg["index_path"])
+        self.doc_map_path = Path(cfg["doc_map_path"])
 
         # Vectorization
         self.embedding_model = cfg["embedding_model"]
-        self.embedding_dim   = cfg["embedding_dim"]
+        self.embedding_dim = cfg["embedding_dim"]
         self.faiss_index_type= cfg["faiss_index_type"]
 
         # Chunking
         self.chunking_strategy = cfg.get("chunking_strategy", "semantic")
-        self.chunk_size        = cfg.get("chunk_size", 512)
-        self.chunk_overlap     = cfg.get("chunk_overlap", 50)
+        self.chunk_size = cfg.get("chunk_size", 512)
+        self.chunk_overlap = cfg.get("chunk_overlap", 50)
         self.semantic_threshold= cfg.get("semantic_threshold", 95.0)
+        self.cross_encoder_model = cfg.get("cross_encoder_model")
+        self.rerank_top_n = cfg.get("rerank_top_n", 50)
 
         # Basic validation
         if not self.data_raw_dir.exists():
