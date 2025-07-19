@@ -29,8 +29,7 @@ class KnowledgeAgent:
         if cfg.chunking_strategy == "recursive":
             chunks = chunk_recursively(docs, cfg.chunk_size, cfg.chunk_overlap)
         else:
-            emb_model = EmbeddingModel(cfg.embedding_model)
-            chunks = chunk_semantically(docs, emb_model, cfg.semantic_threshold)
+            chunks = chunk_semantically(docs,cfg.embedding_model,cfg.semantic_threshold)
 
         # 3) Build doc_map
         self.doc_map = {i: chunk for i, chunk in enumerate(chunks)}

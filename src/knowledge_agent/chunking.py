@@ -1,5 +1,8 @@
-from typing import List, Any
+from typing import List
 from src.knowledge_agent.ingestion import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_experimental.text_splitter import SemanticChunker
+from langchain_openai import OpenAIEmbeddings
 
 def chunk_recursively(
     documents: List[Document],
@@ -7,38 +10,48 @@ def chunk_recursively(
     chunk_overlap: int
 ) -> List[Document]:
     """
-    Splits each Document.content into fixed-size, overlapping character chunks.
+    Split each Document.content into fixed-size, overlapping character chunks.
     """
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        length_function=len,
+        separators=["\n\n", "\n", ". ", " ", ""],
+        is_separator_regex=False,
+    )
+
     chunks: List[Document] = []
     for doc in documents:
-        text = doc.content
-        start = 0
-        idx = 0
-        step = max(chunk_size - chunk_overlap, 1)
-        while start < len(text):
-            end = start + chunk_size
-            chunk_text = text[start:end]
+        for i, text in enumerate(splitter.split_text(doc.content)):
             meta = doc.metadata.copy()
-            meta["chunk_id"] = f"page_{meta.get('page_number', 0)}_chunk_{idx}"
-            chunks.append(Document(content=chunk_text, metadata=meta))
-            idx += 1
-            start += step
+            meta["chunk_id"] = f"page_{meta.get('page_number', 0)}_chunk_{i}"
+            chunks.append(Document(content=text, metadata=meta))
     return chunks
 
 def chunk_semantically(
     documents: List[Document],
-    embedding_model: Any,
+    model_name: str,
     threshold: float
 ) -> List[Document]:
     """
-    Stub semantic chunker: for now, just return one chunk per document.
-    embedding_model and threshold are ignored; you can replace this
-    with a real implementation later.
+    Split each Document.content into semantically coherent chunks.
+
+    model_name: HF sentence-transformers identifier (e.g. "all-MiniLM-L6-v2")
+    threshold: percentile for detecting topic shifts.
     """
+    # Instantiate a LangChain embeddings wrapper
+    embeddings = OpenAIEmbeddings(model_name=model_name)
+
+    splitter = SemanticChunker(
+        embeddings=embeddings,
+        breakpoint_threshold_type="percentile",
+        breakpoint_threshold_amount=threshold,
+    )
+
     chunks: List[Document] = []
     for doc in documents:
-        meta = doc.metadata.copy()
-        meta["chunk_id"] = f"page_{meta.get('page_number', 0)}_chunk_0"
-        chunks.append(Document(content=doc.content, metadata=meta))
+        for i, text in enumerate(splitter.split_text(doc.content)):
+            meta = doc.metadata.copy()
+            meta["chunk_id"] = f"page_{meta.get('page_number', 0)}_chunk_{i}"
+            chunks.append(Document(content=text, metadata=meta))
     return chunks
-
