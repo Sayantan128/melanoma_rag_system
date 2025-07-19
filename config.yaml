@@ -1,0 +1,19 @@
+# config.yaml
+
+# Paths
+data_raw_dir: "data/raw"            # Directory for source PDF documents.
+processed_dir: "data/processed"     # Directory for intermediate processed files.
+index_path: "indices/faiss_index.bin"  # Filepath to save the serialized FAISS index.
+doc_map_path: "indices/doc_map.pkl"    # Filepath for the chunk-to-metadata mapping.
+
+# Vectorization
+embedding_model: "all-MiniLM-L6-v2"  # sentence-transformers model for vectorization.
+embedding_dim: 384                   # Output dimension of the chosen embedding model.
+faiss_index_type: "IndexFlatL2"      # Type of FAISS index to build.
+
+# Chunking
+chunking_strategy: "semantic"        # "recursive" or "semantic".
+chunk_size: 512                      # Target chunk size (chars for recursive).
+chunk_overlap: 50                    # Overlap between chunks for recursive splitting.
+semantic_threshold: 95.0             # Percentile threshold for SemanticChunker.
+
