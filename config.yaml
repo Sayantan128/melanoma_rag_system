@@ -17,3 +17,6 @@ chunk_size: 512                      # Target chunk size (chars for recursive).
 chunk_overlap: 50                    # Overlap between chunks for recursive splitting.
 semantic_threshold: 95.0             # Percentile threshold for SemanticChunker.
 
+# Retrieval Re-ranking
+cross_encoder_model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+rerank_top_n: 50
