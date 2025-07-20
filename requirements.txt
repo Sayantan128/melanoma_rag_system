@@ -26,3 +26,5 @@ pillow==9.5.0
 
 # OCR engine
 pytesseract==0.3.10
+
+reportlab==3.6.12
