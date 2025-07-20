@@ -12,6 +12,17 @@ pypdf==4.2.0
 numpy==1.26.4
 PyYAML==6.0.1
 
+# Force Pydantic v1 for langchain_openai compatibility
+pydantic==1.10.12
+
 # Development & Linting
 ruff==0.4.2
 pytest==8.1.1
+rank-bm25==0.2.2
+
+# PDF rendering → PIL images
+pdf2image==1.16.3
+pillow==9.5.0
+
+# OCR engine
+pytesseract==0.3.10
