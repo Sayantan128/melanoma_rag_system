@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: knowledge_agent
+Version: 0.1.0
+Requires-Dist: faiss-cpu>=1.8.0
+Requires-Dist: sentence-transformers>=2.7.0
+Requires-Dist: rank-bm25>=0.2.2
+Dynamic: requires-dist
