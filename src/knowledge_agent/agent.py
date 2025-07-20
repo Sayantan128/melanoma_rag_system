@@ -55,21 +55,24 @@ class KnowledgeAgent:
         rerank: bool = True
     ) -> list[tuple[Document, float]]:
         """
-        Stage 1: FAISS search for self.cfg.rerank_top_n candidates.
-        Stage 2: Cross-encoder re-rank to pick top k if rerank=True.
+        Stage 1: FAISS search; Stage 2: optional CrossEncoder re-rank.
         """
-        # FAISS first pass
+        # Embed query
         emb_model = EmbeddingModel(self.cfg.embedding_model)
         q_vec = emb_model.encode([query])
-        top_n = max(k, self.cfg.rerank_top_n)
+
+        # Caps candidates to ntotal so FAISS won’t pad with -1
+        top_n = min(self.index.ntotal, max(k, self.cfg.rerank_top_n))
         distances, indices = self.index.search(q_vec, top_n)
 
-        candidates = [
-            (self.doc_map[int(idx)], float(dist))
-            for idx, dist in zip(indices[0], distances[0])
-        ]
+        # Build list of valid (idx>=0) candidates only
+        candidates = []
+        for idx, dist in zip(indices[0], distances[0]):
+            if idx < 0:
+                continue
+            candidates.append((self.doc_map[int(idx)], float(dist)))
 
-        # Skip reranking?
+        # Truncate to k if no reranking
         if not rerank or not self.cfg.cross_encoder_model:
             return candidates[:k]
 

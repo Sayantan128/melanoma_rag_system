@@ -17,6 +17,9 @@ def stub_cross_encoder(monkeypatch):
 
 @pytest.fixture
 def tmp_agent(tmp_path):
+    # 0) Create data dirs for Config validation
+    (tmp_path/"data"/"raw").mkdir(parents=True)
+    (tmp_path/"data"/"processed").mkdir(parents=True)
     # 1) Build FAISS idx + map
     dim = 8
     idx = faiss.IndexFlatL2(dim)
